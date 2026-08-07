@@ -58,20 +58,20 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     return await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Delete expense'),
+            title: const Text('Borrar gasto'),
             content:
-                const Text('Are you sure you want to delete this expense?'),
+                const Text('Estás seguro que quieres borrar este gasto?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+                child: const Text('Cancelar'),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red,
                 ),
-                child: const Text('Delete'),
+                child: const Text('Borrar'),
               ),
             ],
           ),
@@ -100,7 +100,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Expenses')),
+      appBar: AppBar(title: const Text('Gastos')),
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
         onPressed: () async {
@@ -114,7 +114,7 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : expenses.isEmpty
-              ? const Center(child: Text('No expenses found'))
+              ? const Center(child: Text('Sin gastos encontrados'))
               : GroupedList<Expense>(
                   groups: _groupByDate(),
                   amountSelector: (e) => e.amount,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../state/selected_month.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -14,8 +16,23 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final amountController = TextEditingController();
   final categoryController = TextEditingController();
 
-  DateTime selectedDate = DateTime.now();
+  late DateTime selectedDate;
   bool loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Preseleccionamos el día 1 del mes activo en el estado global
+    final selectedMonth = context.read<SelectedMonth>();
+    final now = DateTime.now();
+
+    // Si coincide con el mes/año actual, usaremos el día de hoy
+    if (selectedMonth.year == now.year && selectedMonth.month == now.month) {
+      selectedDate = now;
+    } else {
+      selectedDate = DateTime(selectedMonth.year, selectedMonth.month, 1);
+    }
+  }
 
   Future<void> pickDate() async {
     final date = await showDatePicker(
@@ -31,10 +48,9 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   }
 
   Future<void> saveExpense() async {
-    if (amountController.text.isEmpty ||
-        categoryController.text.isEmpty) {
+    if (amountController.text.isEmpty || categoryController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('All fields are required')),
+        const SnackBar(content: Text('Todos los campos son requeridos')),
       );
       return;
     }
@@ -68,7 +84,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Expense')),
+      appBar: AppBar(title: const Text('Añadir gasto')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -76,12 +92,12 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Amount'),
+              decoration: const InputDecoration(labelText: 'Cantidad'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: categoryController,
-              decoration: const InputDecoration(labelText: 'Category'),
+              decoration: const InputDecoration(labelText: 'Categoría'),
             ),
             const SizedBox(height: 12),
             ListTile(
@@ -96,7 +112,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
                     onPressed: saveExpense,
-                    child: const Text('Save'),
+                    child: const Text('Guardar'),
                   ),
           ],
         ),
@@ -104,4 +120,3 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
     );
   }
 }
-

@@ -31,6 +31,13 @@ class _EditSaleScreenState extends State<EditSaleScreen> {
     selectedDate = widget.sale.date;
   }
 
+  @override
+  void dispose() {
+    amountController.dispose();
+    categoryController.dispose();
+    super.dispose();
+  }
+
   Future<void> saveChanges() async {
     setState(() => loading = true);
 
@@ -41,7 +48,7 @@ class _EditSaleScreenState extends State<EditSaleScreen> {
     }).eq('id', widget.sale.id);
 
     setState(() => loading = false);
-    Navigator.pop(context, true); // 🔹 indica que hubo cambios
+    if (mounted) Navigator.pop(context, true); // indica que hubo cambios
   }
 
   Future<void> pickDate() async {
@@ -49,7 +56,7 @@ class _EditSaleScreenState extends State<EditSaleScreen> {
       context: context,
       initialDate: selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: DateTime(2100),
     );
 
     if (date != null) {
@@ -60,30 +67,31 @@ class _EditSaleScreenState extends State<EditSaleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Edit Sale')),
+      appBar: AppBar(title: const Text('Editar venta')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             TextField(
               controller: categoryController,
-              decoration: const InputDecoration(labelText: 'Category'),
+              decoration: const InputDecoration(labelText: 'Categoría'),
             ),
+            const SizedBox(height: 12),
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Amount'),
+              decoration: const InputDecoration(labelText: 'Cantidad'),
             ),
             const SizedBox(height: 16),
             Row(
               children: [
                 Text(
-                  selectedDate.toLocal().toString().split(' ')[0],
+                  'Fecha: ${selectedDate.toLocal().toString().split(' ')[0]}',
                 ),
                 const Spacer(),
                 TextButton(
                   onPressed: pickDate,
-                  child: const Text('Change date'),
+                  child: const Text('Cambiar fecha'),
                 ),
               ],
             ),
@@ -92,7 +100,7 @@ class _EditSaleScreenState extends State<EditSaleScreen> {
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
                     onPressed: saveChanges,
-                    child: const Text('Save changes'),
+                    child: const Text('Guardar cambios'),
                   ),
           ],
         ),

@@ -13,7 +13,7 @@ class Sale {
     this.customer,
   });
 
-  factory Sale.fromMap(Map<String, dynamic> map) {
+  factory Sale.fromMap(Map<String, dynamic> map) { //Convierte los datos para que sean funcionales en la clase
     return Sale(
       id: map['id'],
       amount: (map['amount'] as num).toDouble(),
@@ -23,7 +23,7 @@ class Sale {
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toMap() { //diccionario para buscar el dato por su nombre y no por su posicion
     return {
       'id': id,
       'amount': amount,

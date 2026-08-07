@@ -5,6 +5,7 @@ class GroupedList<T> extends StatelessWidget {
   final Widget Function(T item) itemBuilder;
   final double Function(T item)? amountSelector;
   final Color? totalColor;
+  final String emptyMessage;
 
   const GroupedList({
     super.key,
@@ -12,21 +13,35 @@ class GroupedList<T> extends StatelessWidget {
     required this.itemBuilder,
     this.amountSelector,
     this.totalColor,
+    this.emptyMessage = 'No records found',
   });
 
   @override
   Widget build(BuildContext context) {
-    final dates = groups.keys.toList()
-      ..sort((a, b) => b.compareTo(a));
+    if (groups.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Text(
+            emptyMessage,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+          ),
+        ),
+      );
+    }
 
-    return ListView(
-      children: dates.map((date) {
-        final items = groups[date]!;
+    final dates = groups.keys.toList()..sort((a, b) => b.compareTo(a));
 
-        double total = 0;
+    return ListView.builder(
+      itemCount: dates.length,
+      itemBuilder: (context, index) {
+        final date = dates[index];
+        final items = groups[date] ?? [];
+
+        double total = 0.0;
         if (amountSelector != null) {
           total = items.fold(
-            0,
+            0.0,
             (sum, item) => sum + amountSelector!(item),
           );
         }
@@ -35,37 +50,37 @@ class GroupedList<T> extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Colors.grey.shade200,
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     _formatDate(date),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   if (amountSelector != null)
                     Text(
-                      total.toStringAsFixed(2),
+                      '\$${total.toStringAsFixed(2)}',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: totalColor ?? Colors.black,
+                        color: totalColor ?? Theme.of(context).colorScheme.primary,
                       ),
                     ),
                 ],
               ),
             ),
-            ...items.map(itemBuilder).toList(),
+            ...items.map(itemBuilder),
           ],
         );
-      }).toList(),
+      },
     );
   }
 
   String _formatDate(DateTime d) {
-    return '${d.day}/${d.month}/${d.year}';
+    final day = d.day.toString().padLeft(2, '0');
+    final month = d.month.toString().padLeft(2, '0');
+    return '$day/$month/${d.year}';
   }
 }

@@ -1,5 +1,7 @@
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 
+@immutable
 class MonthlyStats {
   final double totalSales;
   final double totalExpenses;
@@ -9,7 +11,7 @@ class MonthlyStats {
   final double median;
   final double coefficientOfVariation;
 
-  MonthlyStats({
+  const MonthlyStats({
     required this.totalSales,
     required this.totalExpenses,
     required this.balance,
@@ -25,23 +27,14 @@ class StatisticsService {
     required List<double> sales,
     required List<double> expenses,
   }) {
-    double totalSales =
-        sales.fold(0.0, (a, b) => a + b);
+    final double totalSales = sales.fold(0.0, (a, b) => a + b);
+    final double totalExpenses = expenses.fold(0.0, (a, b) => a + b);
+    final double balance = totalSales - totalExpenses;
 
-    double totalExpenses =
-        expenses.fold(0.0, (a, b) => a + b);
-
-    double balance = totalSales - totalExpenses;
-
-    double avgSale =
-        sales.isEmpty ? 0 : totalSales / sales.length;
-
-    double median = _median(sales);
-
-    double stdDev = _stdDev(sales);
-
-    double cv =
-        avgSale == 0 ? 0 : stdDev / avgSale;
+    final double avgSale = sales.isEmpty ? 0.0 : totalSales / sales.length;
+    final double median = _median(sales);
+    final double stdDev = _stdDev(sales, avgSale);
+    final double cv = avgSale == 0.0 ? 0.0 : stdDev / avgSale;
 
     return MonthlyStats(
       totalSales: totalSales,
@@ -55,27 +48,27 @@ class StatisticsService {
   }
 
   static double _median(List<double> list) {
-    if (list.isEmpty) return 0;
-    List<double> sorted = List.from(list)..sort();
-    int middle = sorted.length ~/ 2;
+    if (list.isEmpty) return 0.0;
+
+    final List<double> sorted = List<double>.from(list)..sort();
+    final int middle = sorted.length ~/ 2;
 
     if (sorted.length % 2 == 0) {
-      return (sorted[middle - 1] + sorted[middle]) / 2;
+      return (sorted[middle - 1] + sorted[middle]) / 2.0;
     } else {
       return sorted[middle];
     }
   }
 
-  static double _stdDev(List<double> list) {
-    if (list.isEmpty) return 0;
+  static double _stdDev(List<double> list, double mean) {
+    if (list.length <= 1) return 0.0;
 
-    double mean =
-        list.reduce((a, b) => a + b) / list.length;
+    final double sumSquaredDiffs = list.fold(
+      0.0,
+      (sum, item) => sum + pow(item - mean, 2),
+    );
 
-    double variance = list
-            .map((e) => pow(e - mean, 2))
-            .reduce((a, b) => a + b) /
-        list.length;
+    final double variance = sumSquaredDiffs / (list.length - 1);
 
     return sqrt(variance);
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../state/selected_month.dart';
 
 class AddSaleScreen extends StatefulWidget {
   const AddSaleScreen({super.key});
@@ -15,8 +17,23 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
   final TextEditingController categoryController = TextEditingController();
   final TextEditingController customerController = TextEditingController();
 
-  DateTime selectedDate = DateTime.now();
+  late DateTime selectedDate;
   bool loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Preseleccionamos el día 1 del mes activo en el estado global
+    final selectedMonth = context.read<SelectedMonth>();
+    final now = DateTime.now();
+
+    // Si coincide con el mes/año actual, usaremos el día de hoy
+    if (selectedMonth.year == now.year && selectedMonth.month == now.month) {
+      selectedDate = now;
+    } else {
+      selectedDate = DateTime(selectedMonth.year, selectedMonth.month, 1);
+    }
+  }
 
   @override
   void dispose() {
@@ -29,7 +46,7 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
   Future<void> saveSale() async {
     if (amountController.text.isEmpty || categoryController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Amount and category are required')),
+        const SnackBar(content: Text('Cantidad y categoria son necesarías')),
       );
       return;
     }
@@ -37,7 +54,7 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
     final amount = double.tryParse(amountController.text);
     if (amount == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid amount')),
+        const SnackBar(content: Text('Cantidad inválida')),
       );
       return;
     }
@@ -67,7 +84,7 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Sale')),
+      appBar: AppBar(title: const Text('Añadir venta')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -75,20 +92,20 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Amount'),
+              decoration: const InputDecoration(labelText: 'Cantidad'),
             ),
             const SizedBox(height: 12),
 
             TextField(
               controller: categoryController,
-              decoration: const InputDecoration(labelText: 'Category'),
+              decoration: const InputDecoration(labelText: 'Categoría'),
             ),
             const SizedBox(height: 12),
 
             TextField(
               controller: customerController,
               decoration:
-                  const InputDecoration(labelText: 'Customer (optional)'),
+                  const InputDecoration(labelText: 'Cliente (opcional)'),
             ),
             const SizedBox(height: 12),
 
@@ -104,13 +121,13 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                       context: context,
                       initialDate: selectedDate,
                       firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
+                      lastDate: DateTime(2100), // Ampliado para permitir registrar fechas futuras si es necesario
                     );
                     if (picked != null) {
                       setState(() => selectedDate = picked);
                     }
                   },
-                  child: const Text('Select date'),
+                  child: const Text('Seleccionar fecha'),
                 ),
               ],
             ),
@@ -121,7 +138,7 @@ class _AddSaleScreenState extends State<AddSaleScreen> {
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
                     onPressed: saveSale,
-                    child: const Text('Save Sale'),
+                    child: const Text('Guardar venta'),
                   ),
           ],
         ),

@@ -3,33 +3,43 @@ import 'package:flutter/material.dart';
 class GroupedByDateList<T> extends StatelessWidget {
   final Map<String, List<T>> groupedItems;
   final Widget Function(T item) itemBuilder;
+  final String emptyMessage;
 
   const GroupedByDateList({
     super.key,
     required this.groupedItems,
     required this.itemBuilder,
+    this.emptyMessage = 'No records found',
   });
 
   @override
   Widget build(BuildContext context) {
     if (groupedItems.isEmpty) {
-      return const Center(child: Text('No records found'));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Text(
+            emptyMessage,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+          ),
+        ),
+      );
     }
 
-    return ListView(
-      children: groupedItems.entries.map((entry) {
+    final entries = groupedItems.entries.toList();
+
+    return ListView.builder(
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        final entry = entries[index];
         final date = entry.key;
         final items = entry.value;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header de fecha
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Text(
                 date,
                 style: const TextStyle(
@@ -38,12 +48,10 @@ class GroupedByDateList<T> extends StatelessWidget {
                 ),
               ),
             ),
-
-            // Items de ese día
-            ...items.map(itemBuilder).toList(),
+            ...items.map(itemBuilder),
           ],
         );
-      }).toList(),
+      },
     );
   }
 }

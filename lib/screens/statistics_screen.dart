@@ -1,10 +1,17 @@
-import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:provider/provider.dart';
-import 'package:fl_chart/fl_chart.dart';
+// lib/screens/statistics_screen.dart
 
+import 'dart:ui' as ui;
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:provider/provider.dart';
+
+import '../services/pdf_export_service.dart';
+import '../services/statistics_service.dart';
 import '../state/selected_month.dart';
-import '../services/analysis_service.dart';
+import '../widgets/additional_charts.dart';
+import '../widgets/charts_widgets.dart';
+import '../widgets/month_selector.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -14,199 +21,170 @@ class StatisticsScreen extends StatefulWidget {
 }
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
-  final supabase = Supabase.instance.client;
+  final _statsService = StatisticsService();
 
-  bool loading = true;
+  // 1. Claves para capturar las 4 gráficas
+  final GlobalKey _categoryChartKey = GlobalKey();
+  final GlobalKey _comparisonChartKey = GlobalKey();
+  final GlobalKey _balanceChartKey = GlobalKey();
+  final GlobalKey _dailyChartKey = GlobalKey();
 
-  MonthlyStats? stats;
+  Map<String, double>? _categoryData;
+  List<MonthlyComparison>? _comparisonData;
+  List<BalanceTrend>? _balanceData;
+  List<DailyExpense>? _dailyData;
 
-  List<double> salesList = [];
-  List<double> expensesList = [];
+  bool _isLoading = true;
+  bool _isExporting = false;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    fetchStats();
+    _loadAllData();
   }
 
-  Future<void> fetchStats() async {
-    setState(() => loading = true);
+  Future<void> _loadAllData() async {
+    final selectedMonth = context.watch<SelectedMonth>();
 
-    final selected = context.read<SelectedMonth>();
+    setState(() => _isLoading = true);
 
-    final salesData = await supabase
-        .from('sales')
-        .select('amount')
-        .gte('date', selected.start.toIso8601String())
-        .lt('date', selected.end.toIso8601String());
+    try {
+      final categoryData = await _statsService.getExpensesByCategory(selectedMonth);
+      // Se pasa selectedMonth para que cargue hasta el mes activo seleccionado
+      final comparisonData = await _statsService.getRecentMonthsComparison(selected: selectedMonth);
+      final balanceData = await _statsService.getBalanceTrend(selected: selectedMonth);
+      final dailyData = await _statsService.getDailyExpenses(selectedMonth);
 
-    final expensesData = await supabase
-        .from('expenses')
-        .select('amount')
-        .gte('date', selected.start.toIso8601String())
-        .lt('date', selected.end.toIso8601String());
+      if (mounted) {
+        setState(() {
+          _categoryData = categoryData;
+          _comparisonData = comparisonData;
+          _balanceData = balanceData;
+          _dailyData = dailyData;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
-    salesList = (salesData as List)
-        .map((e) => (e['amount'] as num).toDouble())
-        .toList();
+  Future<Uint8List?> _captureWidgetImage(GlobalKey key) async {
+    try {
+      final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return null;
 
-    expensesList = (expensesData as List)
-        .map((e) => (e['amount'] as num).toDouble())
-        .toList();
+      final image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      return byteData?.buffer.asUint8List();
+    } catch (e) {
+      return null;
+    }
+  }
 
-    stats = StatisticsService.calculate(
-      sales: salesList,
-      expenses: expensesList,
+  Future<void> _exportToPdf() async {
+    if (_isExporting) return;
+    setState(() => _isExporting = true);
+
+    final selectedMonth = context.read<SelectedMonth>();
+
+    // 2. Capturar las 4 imágenes
+    final categoryBytes = await _captureWidgetImage(_categoryChartKey);
+    final comparisonBytes = await _captureWidgetImage(_comparisonChartKey);
+    final balanceBytes = await _captureWidgetImage(_balanceChartKey);
+    final dailyBytes = await _captureWidgetImage(_dailyChartKey);
+
+    final double totalExpense = _categoryData?.values.fold<double>(
+          0.0,
+          (sum, item) => sum + item,
+        ) ??
+        0.0;
+
+    double totalIncome = 0.0;
+    if (_comparisonData != null && _comparisonData!.isNotEmpty) {
+      totalIncome = _comparisonData!.last.income;
+    }
+
+    final monthLabel = '${selectedMonth.month}/${selectedMonth.year}';
+
+    // 3. Enviar las 4 capturas al servicio de PDF
+    await PdfExportService.generateAndExportReport(
+      monthYear: monthLabel,
+      totalIncome: totalIncome,
+      totalExpense: totalExpense,
+      categoryChartBytes: categoryBytes,
+      comparisonChartBytes: comparisonBytes,
+      balanceChartBytes: balanceBytes,
+      dailyChartBytes: dailyBytes,
     );
 
-    setState(() => loading = false);
+    if (mounted) {
+      setState(() => _isExporting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Statistics')),
-      body: loading
-          ? const Center(child: CircularProgressIndicator())
-          : stats == null
-              ? const Center(child: Text("No data available"))
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      appBar: AppBar(
+        title: const Text("Panel de Estadísticas"),
+        actions: [
+          IconButton(
+            icon: _isExporting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.picture_as_pdf),
+            tooltip: "Exportar PDF",
+            onPressed: _isLoading ? null : _exportToPdf,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          const MonthSelector(),
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : ListView(
+                    padding: const EdgeInsets.all(16.0),
                     children: [
-
-                      /// 📊 MONTHLY SUMMARY
-                      const Text(
-                        "📊 Monthly Summary",
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-
-                      _statCard("Total Sales",
-                          stats!.totalSales, Colors.green),
-
-                      _statCard("Total Expenses",
-                          stats!.totalExpenses, Colors.red),
-
-                      _statCard(
-                          "Net Balance",
-                          stats!.balance,
-                          stats!.balance >= 0
-                              ? Colors.green
-                              : Colors.red),
-
-                      const SizedBox(height: 24),
-
-                      /// 📐 STATISTICAL INDICATORS
-                      const Text(
-                        "📐 Statistical Indicators",
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 12),
-
-                      _statCard("Average Sale",
-                          stats!.avgSale, Colors.blue),
-
-                      _statCard("Median",
-                          stats!.median, Colors.purple),
-
-                      _statCard("Standard Deviation",
-                          stats!.stdDev, Colors.orange),
-
-                      _statCard("Coefficient of Variation",
-                          stats!.coefficientOfVariation,
-                          Colors.teal),
-
-                      const SizedBox(height: 30),
-
-                      /// 📈 SALES TREND
-                      const Text(
-                        "📈 Sales Trend",
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold),
-                      ),
+                      // Gráfica 1
+                      if (_categoryData != null)
+                        RepaintBoundary(
+                          key: _categoryChartKey,
+                          child: CategoryPieChart(categoryData: _categoryData!),
+                        ),
                       const SizedBox(height: 16),
 
-                      SizedBox(
-                        height: 220,
-                        child: LineChart(
-                          LineChartData(
-                            borderData:
-                                FlBorderData(show: false),
-                            titlesData:
-                                FlTitlesData(show: false),
-                            gridData:
-                                FlGridData(show: false),
-                            lineBarsData: [
-                              LineChartBarData(
-                                isCurved: true,
-                                spots: List.generate(
-                                  salesList.length,
-                                  (i) => FlSpot(
-                                    i.toDouble(),
-                                    salesList[i],
-                                  ),
-                                ),
-                              )
-                            ],
-                          ),
+                      // Gráfica 2
+                      if (_comparisonData != null)
+                        RepaintBoundary(
+                          key: _comparisonChartKey,
+                          child: IncomeVsExpenseBarChart(data: _comparisonData!),
                         ),
-                      ),
-
-                      const SizedBox(height: 30),
-
-                      /// 🥧 SALES VS EXPENSES
-                      const Text(
-                        "🥧 Sales vs Expenses",
-                        style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold),
-                      ),
                       const SizedBox(height: 16),
 
-                      SizedBox(
-                        height: 220,
-                        child: PieChart(
-                          PieChartData(
-                            sections: [
-                              PieChartSectionData(
-                                value: stats!.totalSales,
-                                title: "Sales",
-                              ),
-                              PieChartSectionData(
-                                value: stats!.totalExpenses,
-                                title: "Expenses",
-                              ),
-                            ],
-                          ),
+                      // Gráfica 3
+                      if (_balanceData != null)
+                        RepaintBoundary(
+                          key: _balanceChartKey,
+                          child: BalanceTrendLineChart(data: _balanceData!),
                         ),
-                      ),
+                      const SizedBox(height: 16),
+
+                      // Gráfica 4
+                      if (_dailyData != null)
+                        RepaintBoundary(
+                          key: _dailyChartKey,
+                          child: DailyExpenseBarChart(data: _dailyData!),
+                        ),
                     ],
                   ),
-                ),
-    );
-  }
-
-  Widget _statCard(
-      String title, double value, Color color) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: ListTile(
-        title: Text(title),
-        trailing: Text(
-          '\$${value.toStringAsFixed(2)}',
-          style: TextStyle(
-            color: color,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
           ),
-        ),
+        ],
       ),
     );
   }
