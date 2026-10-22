@@ -12,7 +12,43 @@ class MiningScreen extends StatelessWidget {
   const MiningScreen({super.key, required this.selectedMonth});
 
   // ==========================================
-  // 1. ALGORITMOS DE MINERÍA DE DATOS
+  // 1. AGRUPAMIENTO TEMPORAL (TIME-BUCKETING)
+  // ==========================================
+
+  // Agrupa ventas sumando el total de cada día
+  List<double> _groupSalesByDay(List<Map<String, dynamic>> sales) {
+    if (sales.isEmpty) return [];
+    Map<String, double> dailySums = {};
+    for (var sale in sales) {
+      if (sale['date'] != null) {
+        DateTime date = DateTime.parse(sale['date']);
+        String dayKey =
+            '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+        double amount = (sale['amount'] as num).toDouble();
+        dailySums[dayKey] = (dailySums[dayKey] ?? 0.0) + amount;
+      }
+    }
+    return dailySums.values.toList();
+  }
+
+  // Agrupa ventas sumando el total de cada mes
+  List<double> _groupSalesByMonth(List<Map<String, dynamic>> sales) {
+    if (sales.isEmpty) return [];
+    Map<String, double> monthlySums = {};
+    for (var sale in sales) {
+      if (sale['date'] != null) {
+        DateTime date = DateTime.parse(sale['date']);
+        String monthKey =
+            '${date.year}-${date.month.toString().padLeft(2, '0')}';
+        double amount = (sale['amount'] as num).toDouble();
+        monthlySums[monthKey] = (monthlySums[monthKey] ?? 0.0) + amount;
+      }
+    }
+    return monthlySums.values.toList();
+  }
+
+  // ==========================================
+  // 2. ALGORITMOS DE MINERÍA DE DATOS
   // ==========================================
   Map<String, double> _calculateLinearRegression(List<double> values) {
     if (values.length < 2) {
@@ -87,7 +123,8 @@ class MiningScreen extends StatelessWidget {
     return {'Bajo': clusters[0], 'Medio': clusters[1], 'Alto': clusters[2]};
   }
 
-  List<Map<String, dynamic>> _detectAnomalies(List<Map<String, dynamic>> records) {
+  List<Map<String, dynamic>> _detectAnomalies(
+      List<Map<String, dynamic>> records) {
     if (records.length < 3) return [];
     List<double> amounts =
         records.map((e) => (e['amount'] as num).toDouble()).toList();
@@ -146,12 +183,14 @@ class MiningScreen extends StatelessWidget {
   }
 
   // ==========================================
-  // 2. EXPORTACIÓN A PDF
+  // 3. EXPORTACIÓN A PDF
   // ==========================================
   Future<void> _exportToPdf({
     required BuildContext context,
-    required double prediction,
-    required double slope,
+    required double dailyPrediction,
+    required double monthlyPrediction,
+    required double dailySlope,
+    required double monthlySlope,
     required Map<String, dynamic> bestDay,
     required Map<String, List<double>> clusters,
     required List<Map<String, dynamic>> anomalies,
@@ -169,33 +208,33 @@ class MiningScreen extends StatelessWidget {
               children: [
                 pw.Header(
                   level: 0,
-                  child: pw.Text('Reporte de Mineria de Datos - Prospera',
+                  child: pw.Text('Reporte de Minería de Datos - Prospera',
                       style: pw.TextStyle(
                           fontSize: 22, fontWeight: pw.FontWeight.bold)),
                 ),
                 pw.SizedBox(height: 10),
-                pw.Text('Generado automaticamente por el Asesor Inteligente.'),
+                pw.Text('Generado automáticamente por el Asesor Inteligente.'),
                 pw.Divider(),
                 pw.SizedBox(height: 15),
 
                 // Sección 1: Pronóstico
-                pw.Text('1. Pronostico de Ventas (Regresion Lineal)',
+                pw.Text('1. Pronóstico de Ventas (Regresión Lineal)',
                     style: pw.TextStyle(
                         fontSize: 14, fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 5),
                 pw.Text(
-                    'Ventas Estimadas para proximo periodo: \$${prediction.toStringAsFixed(2)}'),
+                    '• Estimación Próximo Día: \$${dailyPrediction.toStringAsFixed(2)} (Tendencia m = ${dailySlope.toStringAsFixed(2)})'),
                 pw.Text(
-                    'Tendencia: ${slope > 0 ? 'Creciente' : (slope < 0 ? 'Decreciente' : 'Estable')} (m = ${slope.toStringAsFixed(2)})'),
+                    '• Estimación Próximo Mes: \$${monthlyPrediction.toStringAsFixed(2)} (Tendencia m = ${monthlySlope.toStringAsFixed(2)})'),
                 pw.SizedBox(height: 15),
 
                 // Sección 2: Patrón de Actividad
-                pw.Text('2. Patron de Actividad (Frecuencia)',
+                pw.Text('2. Patrón de Actividad (Frecuencia)',
                     style: pw.TextStyle(
                         fontSize: 14, fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 5),
                 pw.Text(
-                    'Dia con mayores ventas: ${bestDay['bestDay']} (Promedio: \$${(bestDay['average'] as double).toStringAsFixed(2)})'),
+                    'Día con mayores ventas: ${bestDay['bestDay']} (Promedio: \$${(bestDay['average'] as double).toStringAsFixed(2)})'),
                 pw.SizedBox(height: 15),
 
                 // Sección 3: Clustering
@@ -214,12 +253,12 @@ class MiningScreen extends StatelessWidget {
                 pw.SizedBox(height: 15),
 
                 // Sección 4: Anomalías
-                pw.Text('4. Deteccion de Anomalias (Z-Score)',
+                pw.Text('4. Detección de Anomalías (Z-Score)',
                     style: pw.TextStyle(
                         fontSize: 14, fontWeight: pw.FontWeight.bold)),
                 pw.SizedBox(height: 5),
                 if (anomalies.isEmpty)
-                  pw.Text('No se detectaron gastos atipicos.')
+                  pw.Text('No se detectaron gastos atípicos.')
                 else
                   ...anomalies.map((a) => pw.Text(
                       '- Gasto Alto: ${a['category'] ?? 'Gasto'} (\$${(a['amount'] as num).toDouble().toStringAsFixed(2)})')),
@@ -237,7 +276,7 @@ class MiningScreen extends StatelessWidget {
   }
 
   // ==========================================
-  // 3. INTERFAZ GRÁFICA (BUILD)
+  // 4. INTERFAZ GRÁFICA (BUILD)
   // ==========================================
   @override
   Widget build(BuildContext context) {
@@ -275,20 +314,27 @@ class MiningScreen extends StatelessWidget {
         final rawExpenses = List<Map<String, dynamic>>.from(
             (snapshot.data?[1] as List?) ?? []);
 
-        final List<double> salesAmounts = rawSales
-            .map<double>((e) => (e['amount'] as num).toDouble())
-            .toList();
+        // Agrupamiento temporal para regresión lineal
+        final List<double> dailySales = _groupSalesByDay(rawSales);
+        final List<double> monthlySales = _groupSalesByMonth(rawSales);
+
         final List<double> expensesAmounts = rawExpenses
             .map<double>((e) => (e['amount'] as num).toDouble())
             .toList();
 
-        final regression = _calculateLinearRegression(salesAmounts);
+        // Cálculo de predicciones
+        final dailyRegression = _calculateLinearRegression(dailySales);
+        final monthlyRegression = _calculateLinearRegression(monthlySales);
+
         final clusters = _calculateKMeans(expensesAmounts, 3);
         final anomalies = _detectAnomalies(rawExpenses);
         final bestDayPattern = _analyzeSalesPatterns(rawSales);
 
-        final slope = regression['slope'] ?? 0;
-        final prediction = regression['next'] ?? 0;
+        final dailySlope = dailyRegression['slope'] ?? 0;
+        final dailyPrediction = dailyRegression['next'] ?? 0;
+
+        final monthlySlope = monthlyRegression['slope'] ?? 0;
+        final monthlyPrediction = monthlyRegression['next'] ?? 0;
 
         return Scaffold(
           appBar: AppBar(
@@ -299,8 +345,10 @@ class MiningScreen extends StatelessWidget {
                 tooltip: 'Exportar a PDF',
                 onPressed: () => _exportToPdf(
                   context: context,
-                  prediction: prediction,
-                  slope: slope,
+                  dailyPrediction: dailyPrediction,
+                  monthlyPrediction: monthlyPrediction,
+                  dailySlope: dailySlope,
+                  monthlySlope: monthlySlope,
                   bestDay: bestDayPattern,
                   clusters: clusters,
                   anomalies: anomalies,
@@ -317,6 +365,8 @@ class MiningScreen extends StatelessWidget {
                 const Text('1. Pronóstico de Ventas (Regresión Lineal)',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
+
+                // Tarjeta de Predicción Diaria
                 Card(
                   color: Colors.blue.shade50,
                   child: Padding(
@@ -327,25 +377,27 @@ class MiningScreen extends StatelessWidget {
                         Row(
                           children: [
                             Icon(
-                              slope > 0
+                              dailySlope > 0
                                   ? Icons.trending_up
-                                  : (slope < 0
+                                  : (dailySlope < 0
                                       ? Icons.trending_down
                                       : Icons.trending_flat),
-                              color: slope > 0
+                              color: dailySlope > 0
                                   ? Colors.green
-                                  : (slope < 0 ? Colors.red : Colors.orange),
-                              size: 32,
+                                  : (dailySlope < 0 ? Colors.red : Colors.orange),
+                              size: 28,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Ventas Estimadas Próximo Período'),
-                                  Text('\$${prediction.toStringAsFixed(2)}',
+                                  const Text('Venta Estimada Próximo Día',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600)),
+                                  Text('\$${dailyPrediction.toStringAsFixed(2)}',
                                       style: const TextStyle(
-                                          fontSize: 22,
+                                          fontSize: 20,
                                           fontWeight: FontWeight.bold,
                                           color: Colors.blue)),
                                 ],
@@ -353,14 +405,60 @@ class MiningScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const Divider(),
+                        const SizedBox(height: 4),
                         Text(
-                          slope > 0
-                              ? '• Tendencia al alza: Tus ventas van creciendo (m = ${slope.toStringAsFixed(2)}).'
-                              : (slope < 0
-                                  ? '• Tendencia a la baja: Tus ventas han disminuido (m = ${slope.toStringAsFixed(2)}).'
-                                  : '• Comportamiento estable: Sin variaciones registradas en el tiempo (m = 0.00).'),
-                          style: const TextStyle(fontSize: 13),
+                          'Tendencia diaria: ${dailySlope > 0 ? "Alza" : (dailySlope < 0 ? "Baja" : "Estable")} (m = ${dailySlope.toStringAsFixed(2)})',
+                          style: const TextStyle(fontSize: 12, color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Tarjeta de Predicción Mensual
+                Card(
+                  color: Colors.indigo.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              monthlySlope > 0
+                                  ? Icons.trending_up
+                                  : (monthlySlope < 0
+                                      ? Icons.trending_down
+                                      : Icons.trending_flat),
+                              color: monthlySlope > 0
+                                  ? Colors.green
+                                  : (monthlySlope < 0 ? Colors.red : Colors.orange),
+                              size: 28,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('Venta Estimada Próximo Mes',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.w600)),
+                                  Text('\$${monthlyPrediction.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.indigo)),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tendencia mensual: ${monthlySlope > 0 ? "Alza" : (monthlySlope < 0 ? "Baja" : "Estable")} (m = ${monthlySlope.toStringAsFixed(2)})',
+                          style: const TextStyle(fontSize: 12, color: Colors.black54),
                         ),
                       ],
                     ),
@@ -457,9 +555,9 @@ class MiningScreen extends StatelessWidget {
                   }),
               ],
             ),
-            )
-          );
-        },
-      );
+          ),
+        );
+      },
+    );
   }
 }
