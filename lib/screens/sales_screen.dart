@@ -20,11 +20,13 @@ class _SalesScreenState extends State<SalesScreen> {
   bool loading = true;
   List<Sale> sales = [];
 
+  // ==========================================
+  // CICLO DE VIDA: Detecta cambios de estado/mes
+  // ==========================================
   @override
-  void initState() {
-    super.initState();
-    // Carga inicial de datos tras renderizar el primer frame
-    WidgetsBinding.instance.addPostFrameCallback((_) => fetchSales());
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    fetchSales();
   }
 
   // Obtiene las ventas según el mes seleccionado globalmente
@@ -114,9 +116,6 @@ class _SalesScreenState extends State<SalesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Escucha cambios en el mes seleccionado
-    context.watch<SelectedMonth>();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ventas'),
@@ -130,15 +129,13 @@ class _SalesScreenState extends State<SalesScreen> {
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
         onPressed: () async {
-          final added = await Navigator.push<bool>(
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => const AddSaleScreen(),
             ),
           );
-          if (added == true && mounted) {
-            fetchSales();
-          }
+          if (mounted) fetchSales(); // 👈 Se ejecuta siempre al regresar
         },
       ),
       body: loading
@@ -173,16 +170,13 @@ class _SalesScreenState extends State<SalesScreen> {
                         ),
                       ),
                       onTap: () async {
-                        final updated = await Navigator.push<bool>(
+                        await Navigator.push(
                           context,
                           MaterialPageRoute(
                             builder: (_) => EditSaleScreen(sale: s),
                           ),
                         );
-
-                        if (updated == true && mounted) {
-                          fetchSales();
-                        }
+                        if (mounted) fetchSales(); // 👈 Se ejecuta siempre al regresar
                       },
                     ),
                   ),
