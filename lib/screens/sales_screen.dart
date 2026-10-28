@@ -119,12 +119,6 @@ class _SalesScreenState extends State<SalesScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ventas'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: fetchSales,
-          ),
-        ],
       ),
       floatingActionButton: FloatingActionButton(
         child: const Icon(Icons.add),
@@ -135,7 +129,7 @@ class _SalesScreenState extends State<SalesScreen> {
               builder: (_) => const AddSaleScreen(),
             ),
           );
-          if (mounted) fetchSales(); // 👈 Se ejecuta siempre al regresar
+          if (mounted) fetchSales();
         },
       ),
       body: loading
@@ -176,7 +170,7 @@ class _SalesScreenState extends State<SalesScreen> {
                             builder: (_) => EditSaleScreen(sale: s),
                           ),
                         );
-                        if (mounted) fetchSales(); // 👈 Se ejecuta siempre al regresar
+                        if (mounted) fetchSales();
                       },
                     ),
                   ),
